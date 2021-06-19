@@ -57,20 +57,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 scaler = MinMaxScaler()
 features = scaler.fit_transform(features)
-# Select K Best feature selection
 
-def Select_K_Best(data_dict, features_list, k):
-
-    data_array = featureFormat(data_dict, features_list)
-    labels, features = targetFeatureSplit(data_array)
-
-    k_best = SelectKBest(k=k)
-    k_best.fit(features, labels)
-    scores = k_best.scores_
-    tuples = zip(features_list[1:], scores)
-    k_best_features = sorted(tuples, key=lambda x: x[1], reverse=True)
-
-    return k_best_features[:k]
 ###################
 ### Task 4: Try a variety of classifiers
 ### Please name your classifier clf for easy export below.
@@ -129,6 +116,8 @@ t0 = time()
 
 
 clf = tree.DecisionTreeClassifier()
+###Added for K value error
+clf.fit(features_train.values.reshape(-1, 1), labels_train)
 pipeline = Pipeline(steps = [("SKB", skb), ("dtree",clf)])
 param_grid = {"SKB__k":[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19],
               "dtree__criterion": ["gini", "entropy"],
@@ -136,6 +125,10 @@ param_grid = {"SKB__k":[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19],
 
 
 grid = GridSearchCV(pipeline, param_grid, verbose = 0, cv = sss, scoring = 'f1')
+grid.fit(features, labels)
+# best algorithm
+clf = grid.best_estimator_
+
 t0 = time()
 clf.fit(features_train, labels_train)
 prediction = clf.predict(features_test)
@@ -153,6 +146,48 @@ print ("Recall : ",recall_score(prediction, labels_test))
 print ("F1-Score : ",f1_score(prediction, labels_test))
 
 
+################### Select K Best feature selection####################
+
+
+#def Select_K_Best(data_dict, features_list, k):
+
+    #data_array = featureFormat(data_dict, features_list)
+    #labels, features = targetFeatureSplit(data_array)
+
+    #k_best = SelectKBest(k=k)
+    #k_best.fit(features, labels)
+    #scores = k_best.scores_
+    #tuples = zip(features_list[1:], scores)
+    #k_best_features = sorted(tuples, key=lambda x: x[1], reverse=True)
+
+    #return k_best_features[:k]
+    
+ # Obtaining the boolean list showing selected features
+features_selected_bool = grid.best_estimator_.named_steps['SKB'].get_support()
+# Finding the features selected by SelectKBest
+features_selected_list = [x for x,y in zip(features_list[1:], features_selected_bool) if y]
+
+print "Total number of features selected by SelectKBest algorithm : ",len(features_selected_list)
+
+# Finding the score of features 
+feature_scores =  grid.best_estimator_.named_steps['SKB'].scores_
+# Finding the score of features selected by selectKBest
+feature_selected_scores = feature_scores[features_selected_bool]
+
+# Creating a pandas dataframe and arranging the features based on their scores and rankimg them 
+imp_features_df = pd.DataFrame({'Features_Selected':features_selected_list, 'Features_score':feature_selected_scores})
+imp_features_df.sort_values('Features_score', ascending = False,inplace = True)
+Rank = pd.Series(list(range(1,len(features_selected_list)+1)))
+imp_features_df.set_index(Rank, inplace = True)
+print "The following table shows the feature selected along with its corresponding scores"
+imp_features_df   
+    
+    
+    
+    
+    
+    
+    
 #Classifer 3 KNN
 #clf = KNeighborsClassifier()
 #ss = StratifiedShuffleSplit(n_splits=10, test_size=0.3,random_state = 42)
